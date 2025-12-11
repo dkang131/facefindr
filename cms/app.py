@@ -12,11 +12,45 @@ from config import settings
 from services.minio_service import minio_service
 import uuid
 import os
+import re
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="cms/templates")
+
+def sanitize_bucket_name(event_name: str) -> str:
+    """Sanitize event name to create a valid MinIO bucket name.
+    
+    Rules for bucket names:
+    - Must be between 3 and 63 characters long
+    - Can only contain lowercase letters, numbers, dots (.), and hyphens (-)
+    - Must begin and end with a letter or number
+    - Cannot contain underscores or uppercase letters
+    """
+    # Convert to lowercase
+    sanitized = event_name.lower()
+    
+    # Replace spaces and underscores with hyphens
+    sanitized = re.sub(r'[ _]+', '-', sanitized)
+    
+    # Remove any characters that aren't letters, numbers, dots, or hyphens
+    sanitized = re.sub(r'[^a-z0-9.-]', '', sanitized)
+    
+    # Ensure it starts and ends with a letter or number
+    sanitized = re.sub(r'^[^a-z0-9]+', '', sanitized)
+    sanitized = re.sub(r'[^a-z0-9]+$', '', sanitized)
+    
+    # Ensure minimum length of 3 characters
+    if len(sanitized) < 3:
+        # Pad with the event id or random characters if too short
+        sanitized = sanitized.ljust(3, '0')
+    
+    # Ensure maximum length of 63 characters
+    if len(sanitized) > 63:
+        sanitized = sanitized[:63]
+    
+    return sanitized
 
 # JWT Config
 SECRET_KEY = settings.SECRET_KEY
@@ -120,8 +154,8 @@ async def upload_event(
         db.refresh(new_event)
         logger.info(f"Event saved to database with ID: {new_event.id}")
         
-        # Create MinIO bucket for this event
-        bucket_name = f"event-{new_event.id}"
+        # Create MinIO bucket for this event using sanitized event name
+        bucket_name = sanitize_bucket_name(event_name)
         minio_service.create_bucket(bucket_name)
         
         # Upload images to MinIO
@@ -195,7 +229,7 @@ async def edit_event(
     try:
         # Upload new images to MinIO if provided
         if new_images and any(image.filename for image in new_images):
-            bucket_name = f"event-{event_id}"
+            bucket_name = sanitize_bucket_name(event.event_name)
             
             # Upload new images to MinIO
             for image in new_images:
