@@ -63,6 +63,42 @@ async def download_page(request: Request, event_id: Optional[int] = Query(None),
         "drive_link": None
     })
 
+@router.get("/all-images/{event_id}", response_class=JSONResponse)
+async def get_all_images_for_event(event_id: int, db: Session = Depends(get_db)):
+    """Get all images for a specific event"""
+    try:
+        # Get the event
+        event = db.query(EventName).filter(EventName.id == event_id).first()
+        if not event:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Event not found"}
+            )
+        
+        # Get all photos for this event
+        photos = db.query(PhotoVideo).filter(PhotoVideo.event_id == event_id).all()
+        
+        # Format the response
+        photo_list = []
+        for photo in photos:
+            photo_list.append({
+                "id": photo.id,
+                "file_path": photo.file_path
+            })
+        
+        return JSONResponse({
+            "success": True,
+            "photos": photo_list,
+            "event_name": event.event_name
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting all images for event {event_id}: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"}
+        )
+
 @router.get("/image/{photo_id}")
 async def serve_image(photo_id: int, db: Session = Depends(get_db)):
     """Serve an image from MinIO by photo ID"""

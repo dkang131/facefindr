@@ -66,8 +66,26 @@
                   
                   <!-- Results container -->
                   <div id="resultsContainer" class="hidden mt-4">
-                    <h3 class="text-lg font-bold mb-2">Matched Photos:</h3>
+                    <div class="flex justify-between items-center mb-2">
+                      <h3 class="text-lg font-bold">Matched Photos:</h3>
+                      {% if event %}
+                      <button id="viewAllImagesBtn" class="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600">
+                        View All Images
+                      </button>
+                      {% endif %}
+                    </div>
                     <div id="matchesList" class="grid grid-cols-2 gap-2"></div>
+                  </div>
+                  
+                  <!-- All Images container -->
+                  <div id="allImagesContainer" class="hidden mt-4">
+                    <div class="flex justify-between items-center mb-2">
+                      <h3 class="text-lg font-bold">All Event Images:</h3>
+                      <button id="backToMatchesBtn" class="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600">
+                        Back to Matches
+                      </button>
+                    </div>
+                    <div id="allImagesList" class="grid grid-cols-2 gap-2"></div>
                   </div>
                   
                   <!-- Action Buttons -->
@@ -134,6 +152,10 @@
       const resultsContainer = document.getElementById('resultsContainer');
       const matchesList = document.getElementById('matchesList');
       const eventIdInput = document.getElementById('eventId');
+      const viewAllImagesBtn = document.getElementById('viewAllImagesBtn');
+      const allImagesContainer = document.getElementById('allImagesContainer');
+      const allImagesList = document.getElementById('allImagesList');
+      const backToMatchesBtn = document.getElementById('backToMatchesBtn');
       
       // Function to start the timer
       function startTimer() {
@@ -225,6 +247,7 @@
         video.classList.remove('hidden');
         capturedImageContainer.classList.add('hidden');
         resultsContainer.classList.add('hidden');
+        allImagesContainer.classList.add('hidden');
         
         // Update button visibility
         captureBtn.classList.remove('hidden');
@@ -242,6 +265,7 @@
         // Show loading indicator
         loadingIndicator.classList.remove('hidden');
         resultsContainer.classList.add('hidden');
+        allImagesContainer.classList.add('hidden');
         
         try {
           // Get image data from canvas
@@ -317,6 +341,75 @@
         
         // Show results container
         resultsContainer.classList.remove('hidden');
+        allImagesContainer.classList.add('hidden');
+      }
+      
+      async function loadAllImages() {
+        const eventId = eventIdInput ? eventIdInput.value : null;
+        if (!eventId) {
+          alert("Event ID not found");
+          return;
+        }
+        
+        // Show loading indicator
+        loadingIndicator.classList.remove('hidden');
+        resultsContainer.classList.add('hidden');
+        allImagesContainer.classList.add('hidden');
+        
+        try {
+          const response = await fetch(`/download/all-images/${eventId}`);
+          const result = await response.json();
+          
+          // Hide loading indicator
+          loadingIndicator.classList.add('hidden');
+          
+          if (result.success) {
+            displayAllImages(result.photos);
+          } else {
+            alert("Error: " + result.error);
+          }
+        } catch (error) {
+          // Hide loading indicator
+          loadingIndicator.classList.add('hidden');
+          console.error("Error loading all images: ", error);
+          alert("An error occurred while loading images. Please try again.");
+        }
+      }
+      
+      function displayAllImages(photos) {
+        // Clear previous results
+        allImagesList.innerHTML = '';
+        
+        if (photos.length === 0) {
+          allImagesList.innerHTML = '<p class="col-span-2 text-center">No images found for this event.</p>';
+        } else {
+          // Display all images
+          photos.forEach(photo => {
+            const photoElement = document.createElement('div');
+            photoElement.className = 'border rounded p-2 text-center';
+            photoElement.innerHTML = `
+              <div class="bg-gray-200 border-2 border-dashed rounded-xl w-full h-32 mx-auto flex items-center justify-center overflow-hidden">
+                <img src="/download/image/${photo.id}" alt="Event photo" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\'text-gray-500\\'>Image not available</div>'">
+              </div>
+              <button class="mt-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 view-photo-btn" data-photo-id="${photo.id}">
+                View Photo
+              </button>
+            `;
+            allImagesList.appendChild(photoElement);
+          });
+          
+          // Add event listeners to view photo buttons
+          document.querySelectorAll('#allImagesList .view-photo-btn').forEach(button => {
+            button.addEventListener('click', function() {
+              const photoId = this.getAttribute('data-photo-id');
+              window.open(`/download/image/${photoId}`, '_blank');
+            });
+          });
+        }
+        
+        // Show all images container
+        allImagesContainer.classList.remove('hidden');
+        resultsContainer.classList.add('hidden');
       }
       
       // Event listeners for selfie functionality
@@ -324,6 +417,13 @@
       if (captureBtn) captureBtn.addEventListener('click', capturePhoto);
       if (retakeBtn) retakeBtn.addEventListener('click', retakePhoto);
       if (submitSelfieBtn) submitSelfieBtn.addEventListener('click', submitSelfie);
+      
+      // Event listeners for viewing all images
+      if (viewAllImagesBtn) viewAllImagesBtn.addEventListener('click', loadAllImages);
+      if (backToMatchesBtn) backToMatchesBtn.addEventListener('click', function() {
+        resultsContainer.classList.remove('hidden');
+        allImagesContainer.classList.add('hidden');
+      });
     </script>
   </body>
 </html>
