@@ -163,7 +163,7 @@ async def upload_event(
 async def edit_event(
     event_id: int,
     request: Request,
-    event_name: str = Form(...),
+    event_name: str = Form(None),
     new_images: List[UploadFile] = File(default=None),
     db: Session = Depends(get_db)
 ):
@@ -189,7 +189,7 @@ async def edit_event(
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Update event name if provided
-    if event_name:
+    if event_name is not None and event_name.strip() != "":
         event.event_name = event_name
     
     try:
