@@ -159,6 +159,126 @@ async def upload_event(
     
     return RedirectResponse(url="/cms/dashboard", status_code=303)
 
+@router.post("/edit-event/{event_id}")
+async def edit_event(
+    event_id: int,
+    request: Request,
+    event_name: str = Form(...),
+    new_images: List[UploadFile] = File(default=None),
+    db: Session = Depends(get_db)
+):
+    # Check if user is authenticated by validating JWT token
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Validate JWT token
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_email = payload.get("sub")
+        if user_email is None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    logger.info(f"User {user_email} editing event ID: {event_id}")
+    
+    # Get the event from the database
+    event = db.query(EventName).filter(EventName.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Update event name if provided
+    if event_name:
+        event.event_name = event_name
+    
+    try:
+        # Upload new images to MinIO if provided
+        if new_images and any(image.filename for image in new_images):
+            bucket_name = f"event-{event_id}"
+            
+            # Upload new images to MinIO
+            for image in new_images:
+                if image.filename:
+                    # Generate a unique filename
+                    file_extension = os.path.splitext(image.filename)[1]
+                    unique_filename = f"{uuid.uuid4()}{file_extension}"
+                    
+                    # Save temporary file
+                    temp_file_path = f"temp_{unique_filename}"
+                    with open(temp_file_path, "wb") as buffer:
+                        buffer.write(await image.read())
+                    
+                    # Upload to MinIO
+                    minio_service.upload_file(bucket_name, unique_filename, temp_file_path)
+                    
+                    # Remove temporary file
+                    os.remove(temp_file_path)
+                    
+                    # Save image info to database
+                    photo_video = PhotoVideo(
+                        event_id=event_id,
+                        file_path=f"{bucket_name}/{unique_filename}"
+                    )
+                    db.add(photo_video)
+        
+        db.commit()
+        logger.info(f"Event ID {event_id} updated successfully")
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating event: {e}")
+        raise HTTPException(status_code=500, detail="Error updating event")
+    
+    return RedirectResponse(url="/cms/dashboard", status_code=303)
+
+@router.post("/delete-event/{event_id}")
+async def delete_event(
+    event_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    # Check if user is authenticated by validating JWT token
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Validate JWT token
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_email = payload.get("sub")
+        if user_email is None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    logger.info(f"User {user_email} deleting event ID: {event_id}")
+    
+    # Get the event from the database
+    event = db.query(EventName).filter(EventName.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    try:
+        # Delete all associated photos/videos
+        db.query(PhotoVideo).filter(PhotoVideo.event_id == event_id).delete()
+        
+        # Delete the event
+        db.delete(event)
+        
+        # Delete MinIO bucket (optional)
+        # minio_service.delete_bucket(f"event-{event_id}")
+        
+        db.commit()
+        logger.info(f"Event ID {event_id} deleted successfully")
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting event: {e}")
+        raise HTTPException(status_code=500, detail="Error deleting event")
+    
+    return RedirectResponse(url="/cms/dashboard", status_code=303)
+
 @router.get("/qr/{event_id}")
 async def generate_qr_code(event_id: int, db: Session = Depends(get_db)):
     """Generate a QR code for an event that links to the download page."""
