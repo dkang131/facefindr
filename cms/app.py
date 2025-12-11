@@ -1,4 +1,4 @@
-import logging, io, qrcode
+import logging, io, qrcode, uuid, os, re
 from fastapi import APIRouter, Request, HTTPException, Form, Depends, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -10,9 +10,6 @@ from database import get_db
 from models import Admin, EventName, PhotoVideo
 from config import settings
 from services.minio_service import minio_service
-import uuid
-import os
-import re
 
 logger = logging.getLogger(__name__)
 

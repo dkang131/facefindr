@@ -26,6 +26,7 @@ except Exception as e:
 # Import routers
 from auth.app import router as auth_router
 from cms.app import router as cms_router
+from download.app import router as download_router
 
 app = FastAPI()
 
@@ -38,6 +39,7 @@ except Exception as e:
 
 app.include_router(auth_router, prefix="/auth")
 app.include_router(cms_router, prefix="/cms")
+app.include_router(download_router, prefix="/download")
 
 @app.get("/")
 async def root():

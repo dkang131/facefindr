@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GlamBot</title>
+    <title>FaceFindr</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       rel="stylesheet"
@@ -24,166 +24,8 @@
                 Your Images and Videos are ready
               {% endif %}
             </h1>
-
             <div class="w-full flex-1 mt-8">
-              <div class="mx-auto max-w-xs">
-                <!-- Message display section -->
-                {% if media_found == False %}
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                  <strong>Error!</strong> 
-                  {% if error_message %}
-                    {{ error_message }}
-                  {% else %}
-                    The {{ media_type }} with number {{ media_number }} was not found.
-                  {% endif %}
-                </div>
-                {% endif %}
 
-                {% if email_sent %}
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4" id="successToast">
-                  <strong>Success!</strong> The link to your {{ media_type }} has been sent to {{ email }}.
-                </div>
-                {% endif %}
-
-                <!-- Media found with direct link -->
-                <div id="mediaFoundMessage" {% if not (media_found == True and drive_link) %}style="display: none;"{% endif %}>
-                  <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                    <strong>Great news!</strong> The {{ media_type }} with number {{ media_number }} is available.
-                  </div>
-                </div>
-                
-                <div class="mb-4" id="downloadLink" {% if not (media_found == True and drive_link) %}style="display: none;"{% endif %}>
-                  <a 
-                    href="{{ drive_link }}" 
-                    target="_blank"
-                    class="w-full tracking-wide font-semibold bg-green-500 text-white py-3 rounded-lg hover:bg-green-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
-                  >
-                    <i class="fas fa-download mr-2"></i>
-                    Download {{ media_type|title }} {{ media_number }}
-                  </a>
-                </div>
-                
-                <div class="text-center text-sm text-gray-600 mb-4" id="emailPrompt" {% if not (media_found == True and drive_link) %}style="display: none;"{% endif %}>
-                  Or enter your email to receive the link:
-                </div>
-                
-                <!-- Back button to search for another media -->
-                <div class="mb-4" id="backButtonContainer" {% if not (media_found == True and drive_link) %}style="display: none;"{% endif %}>
-                  <button
-                    onclick="showSearchForm()"
-                    class="w-full tracking-wide font-semibold bg-gray-500 text-white py-3 rounded-lg hover:bg-gray-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
-                  >
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Search Another Image/Video
-                  </button>
-                </div>
-                
-                <!-- Email input form (shown when media is found) -->
-                <form action="/send-link" method="post" id="emailForm" {% if not (media_found == True and drive_link) %}style="display: none;"{% endif %}>
-                  <input type="hidden" name="media_number" value="{{ media_number }}" />
-                  <input type="hidden" name="media_type" value="{{ media_type }}" />
-                  
-                  <input
-                    class="w-full px-8 py-4 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
-                    type="email"
-                    name="email"
-                    id="emailInput"
-                    placeholder="Enter your email to receive the link"
-                    required
-                  />
-                  
-                  <button
-                    type="submit"
-                    id="sendButton"
-                    class="mt-5 tracking-wide font-semibold bg-blue-500 text-gray-100 w-full py-4 rounded-lg hover:bg-blue-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke-width="1.5"
-                      stroke="currentColor"
-                      class="w-6 h-6"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
-                      />
-                    </svg>
-                    <span class="ml-3"> Send Link </span>
-                  </button>
-                </form>
-
-                <!-- Search input and buttons -->
-                <div id="searchForm" {% if media_found == True and drive_link %}style="display: none;"{% endif %}>
-                  <!-- Search input -->
-                  <input
-                    class="w-full px-8 py-4 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white mt-5"
-                    type="number"
-                    id="media_number"
-                    placeholder="Video or Image Number"
-                    required
-                  />
-                  
-                  <!-- Action buttons -->
-                  <div class="mt-5 flex flex-row space-x-4">
-                      <form action="/check-media" method="post" class="flex-1">
-                        <input type="hidden" name="media_type" value="video" />
-                        <input type="hidden" name="media_number" id="video-number-input" />
-                        <button
-                          type="submit"
-                          class="mt-5 tracking-wide font-semibold bg-green-500 text-gray-100 w-full py-4 rounded-lg hover:bg-green-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
-                          onclick="setMediaNumber('video')"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            class="w-6 h-6"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3"
-                            />
-                          </svg>
-          
-                          <span class="ml-3"> Find Video </span>
-                        </button>
-                      </form>
-                      
-                      <form action="/check-media" method="post" class="flex-1">
-                        <input type="hidden" name="media_type" value="image" />
-                        <input type="hidden" name="media_number" id="image-number-input" />
-                        <button
-                          type="submit"
-                          class="mt-5 tracking-wide font-semibold bg-green-500 text-gray-100 w-full py-4 rounded-lg hover:bg-green-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
-                          onclick="setMediaNumber('image')"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            class="w-6 h-6"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3"
-                            />
-                          </svg>
-          
-                          <span class="ml-3"> Find Image </span>
-                        </button>
-                      </form>
-                  </div>
-                </div>
-                
                 <!-- Selfie Capture Section -->
                 <div class="mt-8 pt-6 border-t border-gray-200">
                   <h2 class="text-center text-xl font-bold mb-4">Take a Selfie</h2>
@@ -216,6 +58,18 @@
                     />
                   </div>
                   
+                  <!-- Loading indicator -->
+                  <div id="loadingIndicator" class="hidden text-center my-4">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                    <p class="mt-2">Matching your face with event photos...</p>
+                  </div>
+                  
+                  <!-- Results container -->
+                  <div id="resultsContainer" class="hidden mt-4">
+                    <h3 class="text-lg font-bold mb-2">Matched Photos:</h3>
+                    <div id="matchesList" class="grid grid-cols-2 gap-2"></div>
+                  </div>
+                  
                   <!-- Action Buttons -->
                   <div class="flex justify-center space-x-4 mt-6">
                     <button
@@ -243,7 +97,7 @@
                       id="submitSelfieBtn"
                       class="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 hidden"
                     >
-                      Submit
+                      Find My Photos
                     </button>
                   </div>
                 </div>
@@ -251,6 +105,7 @@
                 {% if event %}
                 <div class="mt-6 text-center text-sm text-gray-600">
                   <p>Event: {{ event.event_name }}</p>
+                  <input type="hidden" id="eventId" value="{{ event.id }}" />
                 </div>
                 {% endif %}
               </div>
@@ -275,6 +130,10 @@
       const submitSelfieBtn = document.getElementById('submitSelfieBtn');
       const capturedImageContainer = document.getElementById('capturedImageContainer');
       const personNameInput = document.getElementById('personName');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const resultsContainer = document.getElementById('resultsContainer');
+      const matchesList = document.getElementById('matchesList');
+      const eventIdInput = document.getElementById('eventId');
       
       // Function to start the timer
       function startTimer() {
@@ -365,6 +224,7 @@
         // Hide the captured image and show the video
         video.classList.remove('hidden');
         capturedImageContainer.classList.add('hidden');
+        resultsContainer.classList.add('hidden');
         
         // Update button visibility
         captureBtn.classList.remove('hidden');
@@ -372,20 +232,81 @@
         submitSelfieBtn.classList.add('hidden');
       }
       
-      function submitSelfie() {
+      async function submitSelfie() {
         const name = personNameInput.value.trim();
         if (!name) {
           alert("Please enter your name");
           return;
         }
         
-        // In a real implementation, you would send the image data and name to the server
-        // For now, we'll just show an alert
-        alert(`Selfie captured for ${name}! In a full implementation, this would be sent to the server.`);
+        // Show loading indicator
+        loadingIndicator.classList.remove('hidden');
+        resultsContainer.classList.add('hidden');
         
-        // Reset the form
-        retakePhoto();
-        personNameInput.value = '';
+        try {
+          // Get image data from canvas
+          const imageData = canvas.toDataURL('image/png');
+          
+          // Get event ID if available
+          const eventId = eventIdInput ? eventIdInput.value : null;
+          
+          // Prepare form data
+          const formData = new FormData();
+          formData.append('selfie_data', imageData);
+          formData.append('person_name', name);
+          if (eventId) {
+            formData.append('event_id', eventId);
+          }
+          
+          // Send to server
+          const response = await fetch('/download/selfie-match', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const result = await response.json();
+          
+          // Hide loading indicator
+          loadingIndicator.classList.add('hidden');
+          
+          if (result.success) {
+            // Display results
+            displayMatches(result.matches);
+          } else {
+            alert("Error: " + result.error);
+          }
+        } catch (error) {
+          // Hide loading indicator
+          loadingIndicator.classList.add('hidden');
+          console.error("Error submitting selfie: ", error);
+          alert("An error occurred while processing your selfie. Please try again.");
+        }
+      }
+      
+      function displayMatches(matches) {
+        // Clear previous results
+        matchesList.innerHTML = '';
+        
+        if (matches.length === 0) {
+          matchesList.innerHTML = '<p class="col-span-2 text-center">No matching photos found.</p>';
+        } else {
+          // Display matches (in a real implementation, you would show actual images)
+          matches.forEach(match => {
+            const matchElement = document.createElement('div');
+            matchElement.className = 'border rounded p-2 text-center';
+            matchElement.innerHTML = `
+              <div class="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mx-auto"></div>
+              <p class="text-sm mt-1">Similarity: ${(match.similarity * 100).toFixed(1)}%</p>
+              <button class="mt-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">
+                View Photo
+              </button>
+            `;
+            matchesList.appendChild(matchElement);
+          });
+        }
+        
+        // Show results container
+        resultsContainer.classList.remove('hidden');
       }
       
       // Event listeners for selfie functionality
