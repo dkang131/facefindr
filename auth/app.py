@@ -229,7 +229,8 @@ async def login_admin(request: Request, response: Response, email: str = Form(..
             )
         
         logger.info(f"Login successful for email: {email}")
-        return JSONResponse(
+        # Return JSON response with token
+        json_response = JSONResponse(
             status_code=200,
             content={
                 "success": True,
@@ -242,6 +243,16 @@ async def login_admin(request: Request, response: Response, email: str = Form(..
                 }
             }
         )
+        # Set the token as a cookie
+        json_response.set_cookie(
+            key="access_token",
+            value=encoded_jwt,
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="lax",
+            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+        return json_response
     except Exception as e:
         logger.error(f"Login error for user '{email}': {str(e)}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
@@ -257,3 +268,25 @@ async def login_admin(request: Request, response: Response, email: str = Form(..
                 }
             }
         )
+
+@router.post("/logout")
+@router.get("/logout")
+async def logout_admin(request: Request, response: Response):
+    try:
+        response.set_cookie(
+            key="access_token",
+            value="",
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=0
+        )
+        logger.info(f"Logout successful for user '{request.client.host if hasattr(request, 'client') else 'Unknown'}'")
+        # Redirect to login page after logout
+        return RedirectResponse(url="/auth/login", status_code=303)
+    except Exception as e:
+        logger.error(f"Logout error for user '{request.client.host if hasattr(request, 'client') else 'Unknown'}': {str(e)}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        logger.info(f"Logout failed due to server error for user '{request.client.host if hasattr(request, 'client') else 'Unknown'}'")
+        # Even if there's an error, redirect to login page
+        return RedirectResponse(url="/auth/login", status_code=303)

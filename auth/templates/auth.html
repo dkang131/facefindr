@@ -131,21 +131,24 @@
           
           const response = await fetch('/auth/login', {
             method: 'POST',
-            body: formData
+            body: formData,
+            redirect: 'follow'  // Let the browser follow redirects
           });
           
-          const data = await response.json();
-          
-          if (response.ok && data.success) {
-            showToast('Login successful!');
-            // Redirect to dashboard or home page
-            setTimeout(() => {
-              window.location.href = '/cms';
-            }, 1500);
+          // If we get here, it means we didn't get redirected (probably an error)
+          if (response.ok) {
+            // Success - we should have been redirected
+            window.location.href = '/cms/dashboard';
           } else {
-            // Show detailed error message from server
-            const errorMessage = data.message || data.errors?.message || 'Login failed! Please check your credentials and try again.';
-            showToast(errorMessage, false);
+            // Try to parse error response
+            try {
+              const data = await response.json();
+              const errorMessage = data.message || data.errors?.message || 'Login failed! Please check your credentials and try again.';
+              showToast(errorMessage, false);
+            } catch (parseError) {
+              // If we can't parse JSON, show a generic error
+              showToast('Login failed! Please check your credentials and try again.', false);
+            }
           }
         } catch (error) {
           showToast('An error occurred during login.', false);
