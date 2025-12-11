@@ -11,3 +11,7 @@ wheels/
 
 # Test Images
 test facefindr/
+test_images
+
+# Test Script
+test_scripts

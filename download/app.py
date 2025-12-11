@@ -1,6 +1,7 @@
 import logging, os
+import tempfile
 from fastapi import APIRouter, Depends, Request, Form, status, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Optional, List
@@ -16,14 +17,8 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 
-# utils for MTCNN face matching
-try:
-    from facenet_pytorch import MTCNN
-    mtcnn = MTCNN(keep_all=True)
-    FACE_RECOGNITION_AVAILABLE = True
-except ImportError:
-    FACE_RECOGNITION_AVAILABLE = False
-    logging.warning("MTCNN not available. Face recognition features will be disabled.")
+# Import FaceVerif class for face matching
+from utils.face_verif import FaceVerif
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,69 +44,6 @@ def decode_base64_image(image_data):
     
     return img
 
-def extract_faces_from_image(image):
-    """Extract faces from an image using MTCNN"""
-    if not FACE_RECOGNITION_AVAILABLE:
-        return []
-    
-    try:
-        # Convert BGR to RGB (OpenCV uses BGR, PIL uses RGB)
-        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
-        # Convert to PIL Image
-        pil_image = Image.fromarray(rgb_image)
-        
-        # Detect faces
-        boxes, _ = mtcnn.detect(pil_image)
-        
-        if boxes is None:
-            return []
-            
-        faces = []
-        for box in boxes:
-            x1, y1, x2, y2 = map(int, box)
-            # Extract face region
-            face = image[y1:y2, x1:x2]
-            faces.append(face)
-            
-        return faces
-    except Exception as e:
-        logger.error(f"Error extracting faces: {e}")
-        return []
-
-def compare_faces(face1, face2):
-    """Compare two faces and return similarity score (placeholder implementation)"""
-    # This is a placeholder - in a real implementation, you would use a face recognition model
-    # to generate embeddings and compare them
-    if not FACE_RECOGNITION_AVAILABLE:
-        return 0.0
-    
-    try:
-        # Convert to RGB
-        face1_rgb = cv2.cvtColor(face1, cv2.COLOR_BGR2RGB)
-        face2_rgb = cv2.cvtColor(face2, cv2.COLOR_BGR2RGB)
-        
-        # Convert to PIL Images
-        pil_face1 = Image.fromarray(face1_rgb)
-        pil_face2 = Image.fromarray(face2_rgb)
-        
-        # Get embeddings (this is a simplified approach)
-        embedding1 = mtcnn(pil_face1)
-        embedding2 = mtcnn(pil_face2)
-        
-        if embedding1 is None or embedding2 is None:
-            return 0.0
-            
-        # Calculate cosine similarity
-        similarity = np.dot(embedding1[0], embedding2[0]) / (
-            np.linalg.norm(embedding1[0]) * np.linalg.norm(embedding2[0])
-        )
-        
-        return float(similarity)
-    except Exception as e:
-        logger.error(f"Error comparing faces: {e}")
-        return 0.0
-
 @router.get("/", response_class=HTMLResponse)
 async def download_page(request: Request, event_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
     # Get the event if specified
@@ -131,6 +63,76 @@ async def download_page(request: Request, event_id: Optional[int] = Query(None),
         "drive_link": None
     })
 
+@router.get("/image/{photo_id}")
+async def serve_image(photo_id: int, db: Session = Depends(get_db)):
+    """Serve an image from MinIO by photo ID"""
+    try:
+        # Get photo record from database
+        photo = db.query(PhotoVideo).filter(PhotoVideo.id == photo_id).first()
+        if not photo:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Photo not found"}
+            )
+        
+        # Parse file path to get bucket and object name
+        # Expected format: bucket_name/object_name
+        path_parts = photo.file_path.split('/', 1)
+        if len(path_parts) != 2:
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Invalid file path format"}
+            )
+        
+        bucket_name = path_parts[0]
+        object_name = path_parts[1]
+        
+        # Download file from MinIO
+        try:
+            # Create a temporary file to store the downloaded image
+            temp_file_path = None
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                temp_file_path = tmp_file.name
+            
+            # Download the file to the temporary location
+            minio_service.download_file(bucket_name, object_name, temp_file_path)
+            
+            # Read the file data
+            with open(temp_file_path, "rb") as f:
+                image_data = f.read()
+            
+            # Clean up temporary file
+            os.unlink(temp_file_path)
+            
+            # Determine content type based on file extension
+            content_type = "image/jpeg"
+            if object_name.lower().endswith('.png'):
+                content_type = "image/png"
+            elif object_name.lower().endswith('.gif'):
+                content_type = "image/gif"
+            
+            return StreamingResponse(BytesIO(image_data), media_type=content_type)
+                
+        except Exception as e:
+            # Clean up temporary file if it exists
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.unlink(temp_file_path)
+                except:
+                    pass
+            logger.error(f"Error downloading file from MinIO: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Error retrieving image from storage"}
+            )
+            
+    except Exception as e:
+        logger.error(f"Error serving image: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Internal server error"}
+        )
+
 @router.post("/selfie-match", response_class=JSONResponse)
 async def selfie_match(
     request: Request,
@@ -139,7 +141,7 @@ async def selfie_match(
     event_id: int = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Process selfie and match against event images"""
+    """Process selfie and match against event images using FaceVerif class"""
     try:
         # Decode the selfie image
         selfie_img = decode_base64_image(selfie_data)
@@ -150,56 +152,90 @@ async def selfie_match(
                 content={"error": "Invalid image data"}
             )
         
-        # Extract face from selfie
-        selfie_faces = extract_faces_from_image(selfie_img)
+        # Save selfie to temporary file for processing
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_selfie:
+            cv2.imwrite(tmp_selfie.name, selfie_img)
+            selfie_path = tmp_selfie.name
         
-        if not selfie_faces:
+        # Get event
+        if event_id:
+            event = db.query(EventName).filter(EventName.id == event_id).first()
+            if not event:
+                # Clean up temporary file
+                os.unlink(selfie_path)
+                return JSONResponse(
+                    status_code=404,
+                    content={"error": "Event not found"}
+                )
+        else:
+            # Clean up temporary file
+            os.unlink(selfie_path)
             return JSONResponse(
                 status_code=400,
-                content={"error": "No face detected in selfie"}
+                content={"error": "Event ID is required for face matching"}
             )
         
-        # Get event images
-        if event_id:
-            event_photos = db.query(PhotoVideo).filter(
-                PhotoVideo.event_id == event_id
-            ).all()
-        else:
-            # Get photos from all events
-            event_photos = db.query(PhotoVideo).all()
-        
-        if not event_photos:
+        # Get the bucket name from an existing photo in this event
+        sample_photo = db.query(PhotoVideo).filter(PhotoVideo.event_id == event_id).first()
+        if not sample_photo:
+            # Clean up temporary file
+            os.unlink(selfie_path)
             return JSONResponse(
                 status_code=404,
-                content={"error": "No photos found for matching"}
+                content={"error": f"No images found for event: {event.event_name}"}
             )
         
-        # For demo purposes, we'll return a simplified response
-        # In a real implementation, you would compare the selfie with each photo
+        # Extract bucket name from the file path (format: bucket_name/filename)
+        bucket_name = sample_photo.file_path.split('/')[0]
+        
+        # Check if bucket exists
+        try:
+            file_list = minio_service.list_files(bucket_name)
+        except Exception as e:
+            # Clean up temporary file
+            os.unlink(selfie_path)
+            logger.error(f"Error accessing bucket {bucket_name}: {e}")
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"No images found for event: {event.event_name}"}
+            )
+        
+        # Use FaceVerif to match selfie with images in the bucket
+        face_verif = FaceVerif()
+        
+        # Match selfie with all images in the bucket
+        matches = face_verif.match_selfie_with_bucket_images(selfie_path, bucket_name, threshold=0.5)
+        
+        # Clean up temporary file
+        os.unlink(selfie_path)
+        
+        # Format matches for response
         matched_photos = []
-        
-        # This is a placeholder implementation - in reality, you would:
-        # 1. Download each photo from MinIO
-        # 2. Extract faces from each photo
-        # 3. Compare each face with the selfie
-        # 4. Return matches above a threshold
-        
-        # For now, we'll just return the first few photos as examples
-        for photo in event_photos[:5]:  # Limit to first 5 for demo
-            matched_photos.append({
-                "id": photo.id,
-                "file_path": photo.file_path,
-                "similarity": 0.85  # Placeholder similarity score
-            })
+        for file_name, similarity in matches[:10]:  # Limit to top 10 matches
+            # Find the corresponding PhotoVideo record
+            photo = db.query(PhotoVideo).filter(
+                PhotoVideo.file_path == f"{bucket_name}/{file_name}"
+            ).first()
+            if photo:
+                matched_photos.append({
+                    "id": photo.id,
+                    "file_path": photo.file_path,
+                    "similarity": similarity
+                })
         
         return JSONResponse({
             "success": True,
             "matches": matched_photos,
-            "message": f"Found {len(matched_photos)} potential matches for {person_name}"
+            "message": f"Found {len(matched_photos)} potential matches for {person_name} in event {event.event_name}"
         })
         
     except Exception as e:
         logger.error(f"Error processing selfie match: {e}")
+        # Clean up temporary file if it exists
+        try:
+            os.unlink(selfie_path)
+        except:
+            pass
         return JSONResponse(
             status_code=500,
             content={"error": "Internal server error processing selfie"}

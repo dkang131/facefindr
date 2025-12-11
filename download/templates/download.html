@@ -290,18 +290,28 @@
         if (matches.length === 0) {
           matchesList.innerHTML = '<p class="col-span-2 text-center">No matching photos found.</p>';
         } else {
-          // Display matches (in a real implementation, you would show actual images)
+          // Display matches with actual images and functional view buttons
           matches.forEach(match => {
             const matchElement = document.createElement('div');
             matchElement.className = 'border rounded p-2 text-center';
             matchElement.innerHTML = `
-              <div class="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16 mx-auto"></div>
+              <div class="bg-gray-200 border-2 border-dashed rounded-xl w-full h-32 mx-auto flex items-center justify-center overflow-hidden">
+                <img src="/download/image/${match.id}" alt="Matched photo" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\'text-gray-500\\'>Image not available</div>'">
+              </div>
               <p class="text-sm mt-1">Similarity: ${(match.similarity * 100).toFixed(1)}%</p>
-              <button class="mt-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">
+              <button class="mt-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 view-photo-btn" data-photo-id="${match.id}">
                 View Photo
               </button>
             `;
             matchesList.appendChild(matchElement);
+          });
+          
+          // Add event listeners to view photo buttons
+          document.querySelectorAll('.view-photo-btn').forEach(button => {
+            button.addEventListener('click', function() {
+              const photoId = this.getAttribute('data-photo-id');
+              window.open(`/download/image/${photoId}`, '_blank');
+            });
           });
         }
         
