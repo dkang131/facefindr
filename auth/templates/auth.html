@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FaceFindr</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      /* Toast notification styles */
+      .toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 24px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(120%);
+        transition: transform 0.3s ease-in-out;
+        z-index: 1000;
+        min-width: 300px;
+      }
+      .toast.show {
+        transform: translateX(0);
+      }
+      .toast.success {
+        background-color: #10B981; /* green-500 */
+      }
+      .toast.error {
+        background-color: #EF4444; /* red-500 */
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+    
+    <div class="min-h-screen bg-gray-100 text-gray-900 flex justify-center">
+      <div
+        class="max-w-screen-xl m-0 sm:m-10 bg-white shadow sm:rounded-lg flex justify-center flex-1"
+      >
+        <div class="lg:w-1/2 xl:w-5/12 p-6 sm:p-12">
+          <div class="mt-12 flex flex-col items-center">
+            <h1 class="text-center text-2xl xl:text-3xl font-extrabold">
+              Sign In to FaceFindr Dashboard
+            </h1>
+            <div class="w-full flex-1 mt-8">
+                <div class="mx-auto max-w-xs">
+                    <form id="login-form">
+                      <input
+                        id="email"
+                        class="w-full px-8 py-4 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+                        type="email"
+                        placeholder="Email"
+                        required
+                      />
+                      <input
+                        id="password"
+                        class="w-full px-8 py-4 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white mt-5"
+                        type="password"
+                        placeholder="Password"
+                        required
+                      />
+                      <button
+                        id="login-btn"
+                        type="submit"
+                        class="mt-5 tracking-wide font-semibold bg-green-500 text-gray-100 w-full py-4 rounded-lg hover:bg-green-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="w-6 h-6"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3"
+                          />
+                        </svg>
+      
+                        <span class="ml-3"> Sign In </span>
+                      </button>
+                    </form>
+                </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      // Function to show toast notifications
+      function showToast(message, isSuccess = true) {
+        const toastContainer = document.getElementById('toast-container');
+        
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast ${isSuccess ? 'success' : 'error'} show`;
+        toast.textContent = message;
+        
+        // Add toast to container
+        toastContainer.appendChild(toast);
+        
+        // Remove toast after 3 seconds
+        setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => {
+            toastContainer.removeChild(toast);
+          }, 300);
+        }, 3000);
+      }
+
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        
+        try {
+          const formData = new FormData();
+          formData.append('email', email);
+          formData.append('password', password);
+          
+          const response = await fetch('/auth/login', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok && data.success) {
+            showToast('Login successful!');
+            // Redirect to dashboard or home page
+            setTimeout(() => {
+              window.location.href = '/cms';
+            }, 1500);
+          } else {
+            showToast(data.message || 'Login failed!', false);
+          }
+        } catch (error) {
+          showToast('An error occurred during login.', false);
+          console.error('Login error:', error);
+        }
+      });
+    </script>
+  </body>
+</html>

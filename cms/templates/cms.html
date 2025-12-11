@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GlamBot Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="bg-white shadow-lg">
+      <div class="max-w-7xl mx-auto px-4">
+        <div class="flex justify-between h-16">
+          <div class="flex items-center">
+            <h1 class="text-xl font-bold text-gray-800">FaceFindr Dashboard</h1>
+          </div>
+          <div class="flex items-center space-x-4">
+            <!-- Upload Event Button -->
+            <button 
+              onclick="openUploadModal()" 
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
+            >
+              <i class="fas fa-plus mr-2"></i>
+              Upload Event
+            </button>
+            
+            <!-- Logout Button -->
+            <a 
+              href="/auth/login" 
+              class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center"
+            >
+              <i class="fas fa-sign-out-alt mr-2"></i>
+              Logout
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="min-h-screen bg-gray-100 text-gray-900 flex justify-center py-8">
+      <div class="max-w-screen-xl w-full bg-white shadow sm:rounded-lg p-6">
+        <h2 class="text-2xl font-bold mb-6 text-center">Uploaded Events</h2>
+        
+        <!-- Search Form -->
+        <div class="mb-6">
+          <form method="GET" action="/cms/dashboard" class="flex">
+            <input
+              type="text"
+              name="search"
+              value="{{ search_query }}"
+              placeholder="Search events..."
+              class="flex-grow px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded-r-md"
+            >
+              <i class="fas fa-search"></i>
+            </button>
+            {% if search_query %}
+            <a
+              href="/cms/dashboard"
+              class="ml-2 bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center"
+            >
+              <i class="fas fa-times mr-1"></i> Clear
+            </a>
+            {% endif %}
+          </form>
+        </div>
+        
+        <!-- Events Table -->
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white border border-gray-200">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="py-2 px-4 border-b text-left">ID</th>
+                <th class="py-2 px-4 border-b text-left">Event Name</th>
+                <th class="py-2 px-4 border-b text-left">QR Code</th>
+                <th class="py-2 px-4 border-b text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if events %}
+                {% for event in events %}
+                <tr class="hover:bg-gray-50">
+                  <td class="py-2 px-4 border-b">{{ event.id }}</td>
+                  <td class="py-2 px-4 border-b">{{ event.event_name }}</td>
+                  <td class="py-2 px-4 border-b">
+                    <a href="/cms/qr/{{ event.id }}" target="_blank" class="text-blue-500 hover:underline">
+                      <i class="fas fa-qrcode"></i> View QR
+                    </a>
+                  </td>
+                  <td class="py-2 px-4 border-b">
+                    <button class="text-blue-500 hover:text-blue-700 mr-2" title="Edit">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="text-red-500 hover:text-red-700" title="Delete">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="5" class="py-4 px-4 border-b text-center text-gray-500">
+                    No events found.
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="mt-6 flex justify-between items-center">
+          <div class="text-sm text-gray-600">
+            Showing page {{ current_page }} of {{ total_pages }} 
+            ({{ total_events }} total events)
+          </div>
+          
+          <div class="flex space-x-2">
+            {% if current_page > 1 %}
+            <a 
+              href="?page={{ current_page - 1 }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+              class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100"
+            >
+              Previous
+            </a>
+            {% endif %}
+            
+            {% for page_num in range(1, total_pages + 1) %}
+              {% if page_num == current_page %}
+                <span class="px-3 py-1 bg-blue-500 text-white rounded-md">
+                  {{ page_num }}
+                </span>
+              {% else %}
+                <a 
+                  href="?page={{ page_num }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+                  class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100"
+                >
+                  {{ page_num }}
+                </a>
+              {% endif %}
+            {% endfor %}
+            
+            {% if current_page < total_pages %}
+            <a 
+              href="?page={{ current_page + 1 }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+              class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100"
+            >
+              Next
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Upload Event Modal -->
+    <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div class="border-b px-4 py-2 flex justify-between items-center">
+          <h3 class="font-semibold text-lg">Upload New Event</h3>
+          <button onclick="closeUploadModal()" class="text-gray-500 hover:text-gray-700">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <form action="/cms/upload-event" method="post" enctype="multipart/form-data" class="px-6 py-4">
+          <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="event_name">
+              Event Name
+            </label>
+            <input
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              type="text"
+              id="event_name"
+              name="event_name"
+              placeholder="Enter event name"
+              required
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="event_image">
+              Event Image
+            </label>
+            <input
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              type="file"
+              id="event_image"
+              name="event_image"
+              accept="image/*"
+              multiple required
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="gsheet_link">
+              Google Sheet Link
+            </label>
+            <input
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              type="url"
+              id="gsheet_link"
+              name="gsheet_link"
+              placeholder="Enter Google Sheet URL"
+              required
+            />
+          </div>
+          <div class="flex justify-end space-x-2">
+            <button 
+              type="button" 
+              onclick="closeUploadModal()"
+              class="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Upload Images
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // Modal functions
+      function openUploadModal() {
+        document.getElementById('uploadModal').classList.remove('hidden');
+        document.getElementById('uploadModal').classList.add('flex');
+      }
+      
+      function closeUploadModal() {
+        document.getElementById('uploadModal').classList.add('hidden');
+        document.getElementById('uploadModal').classList.remove('flex');
+      }
+      
+      // Close modal when clicking outside
+      window.onclick = function(event) {
+        const modal = document.getElementById('uploadModal');
+        if (event.target == modal) {
+          closeUploadModal();
+        }
+      }
+    </script>
+  </body>
+</html>
