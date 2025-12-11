@@ -1,14 +1,17 @@
 import logging, io, qrcode
-from fastapi import APIRouter, Request, HTTPException, Form, Depends, Query
+from fastapi import APIRouter, Request, HTTPException, Form, Depends, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from jose import jwt 
 from jose.exceptions import JWTError
 from database import get_db
 from models import Admin, EventName, PhotoVideo
 from config import settings
+from services.minio_service import minio_service
+import uuid
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +22,12 @@ templates = Jinja2Templates(directory="cms/templates")
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 
-def populate_photo_video_table(gsheet_link: str, event_id: int, db: Session):
-    """Placeholder function to populate photo/video table from Google Sheet"""
-    # This would contain the actual implementation to read from Google Sheets
+def create_minio_bucket(bucket_name: str):
+    """Create a MinIO bucket for storing event images"""
+    # This would contain the actual implementation to create a MinIO bucket
     # For now, we'll just log that it was called
-    logger.info(f"Populating photo/video table for event {event_id} from {gsheet_link}")
-    # In a real implementation, you would parse the Google Sheet and create PhotoVideo entries
+    logger.info(f"Creating MinIO bucket: {bucket_name}")
+    # In a real implementation, you would use the MinIO client to create the bucket
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(
@@ -87,7 +90,7 @@ async def dashboard_page(
 async def upload_event(
     request: Request,
     event_name: str = Form(...),
-    gsheet_link: str = Form(...),
+    event_images: List[UploadFile] = File(...),
     db: Session = Depends(get_db)
 ):
     # Check if user is authenticated by validating JWT token
@@ -104,12 +107,11 @@ async def upload_event(
     except JWTError:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    logger.info(f"User {user_email} uploading event: {event_name} with link: {gsheet_link}")
+    logger.info(f"User {user_email} uploading event: {event_name} with {len(event_images)} images")
     
     # Save the event to the database
     new_event = EventName(
-        event_name=event_name,
-        gsheet_link=gsheet_link
+        event_name=event_name
     )
     
     try:
@@ -118,8 +120,38 @@ async def upload_event(
         db.refresh(new_event)
         logger.info(f"Event saved to database with ID: {new_event.id}")
         
-        # Now populate the PhotoVideo table by reading from the Google Sheet
-        populate_photo_video_table(gsheet_link, new_event.id, db)
+        # Create MinIO bucket for this event
+        bucket_name = f"event-{new_event.id}"
+        minio_service.create_bucket(bucket_name)
+        
+        # Upload images to MinIO
+        for image in event_images:
+            if image.filename:
+                # Generate a unique filename
+                file_extension = os.path.splitext(image.filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_extension}"
+                
+                # Save temporary file
+                temp_file_path = f"temp_{unique_filename}"
+                with open(temp_file_path, "wb") as buffer:
+                    buffer.write(await image.read())
+                
+                # Upload to MinIO
+                minio_service.upload_file(bucket_name, unique_filename, temp_file_path)
+                
+                # Remove temporary file
+                os.remove(temp_file_path)
+                
+                # Save image info to database
+                photo_video = PhotoVideo(
+                    event_id=new_event.id,
+                    file_path=f"{bucket_name}/{unique_filename}"
+                )
+                db.add(photo_video)
+        
+        db.commit()
+        logger.info(f"Uploaded {len(event_images)} images to MinIO for event ID: {new_event.id}")
+        
     except Exception as e:
         db.rollback()
         logger.error(f"Error saving event to database: {e}")

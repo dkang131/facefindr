@@ -14,7 +14,6 @@ class EventName(Base):
     __tablename__ = "event_names"
     id = Column(Integer, primary_key=True, index=True)
     event_name = Column(String, index=True)
-    gsheet_link = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class PhotoVideo(Base):

@@ -6,7 +6,7 @@ FaceFindr is an advanced image search application that uses facial recognition t
 
 ### Prerequisites
 - Python 3.13+
-- PostgreSQL database (or SQLite for development)
+- Docker (for MinIO and PostgreSQL)
 - uv package manager
 
 ### Installation
@@ -16,9 +16,18 @@ FaceFindr is an advanced image search application that uses facial recognition t
    uv sync
    ```
 
+### Starting Services with Docker
+Start MinIO and PostgreSQL using Docker Compose:
+```
+docker-compose up -d
+```
+
+Default credentials:
+- MinIO: minioadmin / minioadmin
+- PostgreSQL: postgres / 123456
+
 ### Database Setup
-1. Make sure your database is running
-2. Run migrations:
+1. Run migrations:
    ```
    alembic upgrade head
    ```
