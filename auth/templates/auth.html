@@ -143,7 +143,9 @@
               window.location.href = '/cms';
             }, 1500);
           } else {
-            showToast(data.message || 'Login failed!', false);
+            // Show detailed error message from server
+            const errorMessage = data.message || data.errors?.message || 'Login failed! Please check your credentials and try again.';
+            showToast(errorMessage, false);
           }
         } catch (error) {
           showToast('An error occurred during login.', false);

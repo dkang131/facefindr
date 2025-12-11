@@ -176,7 +176,9 @@
             document.getElementById('password').value = '';
             document.getElementById('confirm-password').value = '';
           } else {
-            showToast(data.message || data.detail || 'Registration failed!', false);
+            // Show detailed error message from server
+            const errorMessage = data.message || data.detail || 'Registration failed! Please check your inputs and try again.';
+            showToast(errorMessage, false);
           }
         } catch (error) {
           showToast('An error occurred during registration.', false);

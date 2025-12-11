@@ -71,12 +71,12 @@ async def register_admin(
         # Check if admin already exists
         existing_admin = db.query(Admin).filter(Admin.email == admin_data.email).first()
         if existing_admin:
-            logger.debug(f"Registration attempt failed: Admin with email {admin_data.email} already exists")
+            logger.info(f"Registration attempt failed: Admin with email '{admin_data.email}' already exists")
             return JSONResponse(
                 status_code=400,
                 content={
                     "success": False,
-                    "message": "Registration failed",
+                    "message": f"Registration failed: Admin with email '{admin_data.email}' already exists. Please use a different email.",
                     "errors": {
                         "code": "EMAIL_EXISTS",
                         "message": "Admin with this email already exists"
@@ -88,14 +88,15 @@ async def register_admin(
         try:
             hashed_password = hash_password(admin_data.password)
         except Exception as hash_error:
-            logger.error(f"Password hashing error: {str(hash_error)}")
+            logger.error(f"Password hashing error for email '{admin_data.email}': {str(hash_error)}")
             logger.error(f"Password length: {len(admin_data.password)}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
+            logger.info(f"Registration failed due to password hashing error for email '{admin_data.email}'")
             return JSONResponse(
                 status_code=500,
                 content={
                     "success": False,
-                    "message": "Registration failed due to password processing error",
+                    "message": f"Registration failed: Unable to process password. Please try a different password or contact administrator.",
                     "errors": {
                         "code": "PASSWORD_HASH_ERROR",
                         "message": f"Unable to process password: {str(hash_error)}"
@@ -124,13 +125,14 @@ async def register_admin(
         )
     except Exception as e:
         db.rollback()
-        logger.error(f"Registration error: {str(e)}")
+        logger.error(f"Registration error for email '{admin_data.email}': {str(e)}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
+        logger.info(f"Registration failed due to server error for email '{admin_data.email}'")
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "message": "Registration failed due to server error",
+                "message": f"Registration failed: An unexpected server error occurred. Please try again later.",
                 "errors": {
                     "code": "SERVER_ERROR",
                     "message": f"An unexpected error occurred during registration: {str(e)}"
@@ -139,19 +141,19 @@ async def register_admin(
         )
 
 @router.post("/login")
-async def login_admin(response: Response, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+async def login_admin(request: Request, response: Response, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     try:
         # Find admin by email
         admin = db.query(Admin).filter(Admin.email == email).first()
         if not admin:
-            logger.debug(f"Login attempt failed: User with email {email} not found")
+            logger.info(f"Login attempt failed: User with email '{email}' not found. IP: {request.client.host if hasattr(request, 'client') else 'Unknown'}")
             return JSONResponse(
                 status_code=401,
                 content={
                     "success": False,
-                    "message": "Login failed",
+                    "message": f"Login failed: User with email '{email}' not found. Please check your email address.",
                     "errors": {
-                        "code": "INVALID_CREDENTIALS",
+                        "code": "USER_NOT_FOUND",
                         "message": "Invalid email or password"
                     }
                 }
@@ -177,26 +179,27 @@ async def login_admin(response: Response, email: str = Form(...), password: str 
             )
             
         if not password_valid:
-            logger.debug(f"Login attempt failed: Invalid password for email {email}")
+            logger.info(f"Login attempt failed: Invalid password for user '{email}'. IP: {request.client.host if hasattr(request, 'client') else 'Unknown'}")
             # Check if this might be due to password hash format incompatibility
             if admin.password.startswith("$2") and len(admin.password) > 50:
-                logger.warning(f"Possible password hash format incompatibility for user {email}")
+                logger.warning(f"Possible password hash format incompatibility for user {email}. Recommend password reset.")
                 return JSONResponse(
                     status_code=401,
                     content={
                         "success": False,
-                        "message": "Login failed. Please contact administrator to reset your password.",
+                        "message": "Login failed: Password format incompatible. Please contact administrator to reset your password.",
                         "errors": {
                             "code": "PASSWORD_FORMAT_ERROR",
                             "message": "Password format incompatible. Please contact administrator to reset your password."
                         }
                     }
                 )
+            logger.info(f"Login failed for user '{email}': Incorrect password entered. IP: {request.client.host if hasattr(request, 'client') else 'Unknown'}")
             return JSONResponse(
                 status_code=401,
                 content={
                     "success": False,
-                    "message": "Login failed",
+                    "message": f"Login failed: Incorrect password for user '{email}'. Please check your password.",
                     "errors": {
                         "code": "INVALID_CREDENTIALS",
                         "message": "Invalid email or password"
@@ -240,13 +243,14 @@ async def login_admin(response: Response, email: str = Form(...), password: str 
             }
         )
     except Exception as e:
-        logger.error(f"Login error: {str(e)}")
+        logger.error(f"Login error for user '{email}': {str(e)}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
+        logger.info(f"Login failed due to server error for user '{email}'. IP: {request.client.host if hasattr(request, 'client') else 'Unknown'}")
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "message": "Login failed due to server error",
+                "message": f"Login failed: An unexpected server error occurred. Please try again later.",
                 "errors": {
                     "code": "SERVER_ERROR",
                     "message": f"An unexpected error occurred during login: {str(e)}"
