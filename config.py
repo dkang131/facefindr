@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     MINIO_ACCESS_KEY: str = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
     MINIO_SECRET_KEY: str = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 
-    # class Config:
-    #     env_file = ".env"
+    class Config:
+        env_file = ".env"
 
 settings = Settings()

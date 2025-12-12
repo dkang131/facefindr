@@ -1,6 +1,38 @@
-version: '3.8'
-
 services:
+  web:
+    build:
+      context: .
+      target: production
+    ports:
+      - "7219:7219"
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://postgres:123456@db:5432/facefindr
+      MINIO_ENDPOINT: minio:9000
+      FLASK_APP: main.py
+      FLASK_ENV: production
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    networks:
+      - app-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
   minio:
     image: minio/minio:latest
     ports:
@@ -12,9 +44,11 @@ services:
     volumes:
       - minio_storage:/data
     command: server /data --console-address ":9001"
+    networks:
+      - app-network
     
-  postgres:
-    image: postgres:13
+  db:
+    image: postgres:17
     environment:
       POSTGRES_DB: facefindr
       POSTGRES_USER: postgres
@@ -23,7 +57,18 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
 
 volumes:
   minio_storage:
   postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
