@@ -1,7 +1,3 @@
-# Remove these:
-# from facenet_pytorch import MTCNN, InceptionResnetV1
-
-# Add these:
 from insightface.app import FaceAnalysis
 import numpy as np
 from PIL import Image
@@ -16,25 +12,12 @@ app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider', 'CPUExe
 app.prepare(ctx_id=0, det_size=(640, 640))  # ctx_id = 0 for GPU, -1 for CPU
 
 class FaceVerif:
-    def __init__(self, image_path=None, selfie_path=None):
-        self.image_path = image_path
-        self.selfie_path = selfie_path
-        self.image = None
-        self.faces = None
-        self.face_embeddings = None
-        
-        if image_path:
-            self.image = Image.open(image_path).convert('RGB')
-            self.faces = mtcnn(self.image)
-            if self.faces is not None:
-                self.face_embeddings = resnet(self.faces).detach().numpy()
+    def __init__(self):
+        pass
     
-    def extract_faces(self):
-        """Extract faces from the selfie image"""
-        if not self.selfie_path:
-            return None
-            
-        img = Image.open(self.selfie_path).convert('RGB')
+    def extract_faces(self, image_path):
+        """Extract faces from the image"""
+        img = Image.open(image_path).convert('RGB')
         img_bgr = np.array(img)[:, :, ::-1]
         faces = app.get(img_bgr)
         
@@ -54,14 +37,14 @@ class FaceVerif:
             faces1 = app.get(np.array(img1)[:, :, ::-1])
             faces2 = app.get(np.array(img2)[:, :, ::-1])
             
-            if faces1 is None or faces2 is None:
+            if not faces1 or not faces2:
                 return False, 0.0
             
             # Get embeddings for all faces
             embs1 = np.array([f['embedding'] for f in faces1])
             embs2 = np.array([f['embedding'] for f in faces2])
             
-            # Calculate distances between all face pairs
+            # Calculate similarities between all face pairs
             sim_matrix = cosine_similarity(embs1, embs2)
             max_similarity = sim_matrix.max()  # highest similarity between any pair
 
@@ -92,9 +75,9 @@ class FaceVerif:
         try:
             # Extract face embedding from selfie
             selfie_img = Image.open(selfie_path).convert('RGB')
-            selfie_faces = app.get(np.array(selfie_image)[:, :, ::-1])
+            selfie_faces = app.get(np.array(selfie_img)[:, :, ::-1])
             
-            if selfie_faces is None:
+            if not selfie_faces:
                 print("No faces detected in selfie")
                 return matches
                 
@@ -120,15 +103,12 @@ class FaceVerif:
                         
                     bucket_embs = np.array([f['embedding'] for f in bucket_faces])
                     
-                    min_distance = float('inf')
-                    for se in selfie_embs:
-                        for be in bucket_embs:
-                            dist = np.linalg.norm(se - be)
-                            min_distance = min(min_distance, dist)
+                    # Calculate cosine similarities between all face pairs
+                    similarities = cosine_similarity(selfie_embs, bucket_embs)
+                    max_similarity = similarities.max()
                     
-                    if min_distance < threshold:  # e.g., threshold=1.0
-                        similarity = max(0, 1 - (min_distance / 2.0))
-                        matches.append((file_name, similarity))
+                    if max_similarity > threshold:  # threshold closer to 1 means more similar
+                        matches.append((file_name, float(max_similarity)))
                         
         except Exception as e:
             print(f"Error in match_selfie_with_bucket_images: {e}")

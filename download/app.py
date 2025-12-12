@@ -18,7 +18,8 @@ from io import BytesIO
 from PIL import Image
 
 # Import FaceVerif class for face matching
-from utils.face_verif import FaceVerif
+# from utils.face_verif import FaceVerif
+from utils.insight_face import FaceVerif
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
