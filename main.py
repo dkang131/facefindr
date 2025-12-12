@@ -43,7 +43,8 @@ app.include_router(download_router, prefix="/download")
 
 @app.get("/")
 async def root():
-    return {"message": "FaceFindr API"}
+    # return {"message": "FaceFindr API"}
+    return RedirectResponse(url="/auth/login")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=7219)
