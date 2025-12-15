@@ -49,7 +49,7 @@ COPY ./reset_password.py .
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-ENV FLASK_APP=main.py
+# ENV FLASK_APP=main.py
 
 EXPOSE 7219
 
