@@ -9,12 +9,21 @@ class Admin(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String)
     role = Column(String)
+    
+    # Relationship to events created by this admin
+    events = relationship("EventName", back_populates="admin")
 
 class EventName(Base):
     __tablename__ = "event_names"
     id = Column(Integer, primary_key=True, index=True)
     event_name = Column(String, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Foreign key to Admin
+    admin_id = Column(Integer, ForeignKey("admin.id"))
+    
+    # Relationship to admin who created this event
+    admin = relationship("Admin", back_populates="events")
+    photos_videos = relationship("PhotoVideo", back_populates="event")
 
 class PhotoVideo(Base):
     __tablename__ = "photo_videos"

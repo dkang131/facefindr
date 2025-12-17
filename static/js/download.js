@@ -138,6 +138,14 @@ async function submitSelfie() {
     // Get event ID if available
     const eventId = eventIdInput ? eventIdInput.value : null;
     
+    // Check if we have an event
+    if (!eventId) {
+      alert("No event selected. Please access this page with a valid event.");
+      // Hide loading indicator
+      loadingIndicator.classList.add('hidden');
+      return;
+    }
+    
     // Prepare form data
     const formData = new FormData();
     formData.append('selfie_data', imageData);
@@ -211,7 +219,7 @@ function displayMatches(matches) {
 async function loadAllImages() {
   const eventId = eventIdInput ? eventIdInput.value : null;
   if (!eventId) {
-    alert("Event ID not found");
+    alert("No event selected. Please access this page with a valid event.");
     return;
   }
   

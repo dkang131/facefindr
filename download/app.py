@@ -51,11 +51,23 @@ async def download_page(request: Request, event_id: Optional[int] = Query(None),
     event = None
     if event_id:
         event = db.query(EventName).filter(EventName.id == event_id).first()
+        if not event:
+            # If event_id is provided but event doesn't exist, return error
+            return templates.TemplateResponse("download.html", {
+                "request": request,
+                "event": None,
+                "error": "Event not found"
+            })
     else:
         # Get the first event as default
-        events = db.query(EventName).all()
-        if events:
-            event = events[0]  # Default to first event for now
+        event = db.query(EventName).first()
+        if not event:
+            # No events in the system
+            return templates.TemplateResponse("download.html", {
+                "request": request,
+                "event": None,
+                "error": "No events available"
+            })
     
     return templates.TemplateResponse("download.html", {
         "request": request,
@@ -104,12 +116,20 @@ async def get_all_images_for_event(event_id: int, db: Session = Depends(get_db))
 async def serve_image(photo_id: int, db: Session = Depends(get_db)):
     """Serve an image from MinIO by photo ID"""
     try:
-        # Get photo record from database
+        # Get photo record from database with its event
         photo = db.query(PhotoVideo).filter(PhotoVideo.id == photo_id).first()
         if not photo:
             return JSONResponse(
                 status_code=404,
                 content={"error": "Photo not found"}
+            )
+        
+        # Check that the photo's event exists
+        event = db.query(EventName).filter(EventName.id == photo.event_id).first()
+        if not event:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Event not found for this photo"}
             )
         
         # Parse file path to get bucket and object name

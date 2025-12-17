@@ -26,12 +26,15 @@
             <h1 class="text-center text-2xl xl:text-3xl font-bold">
               {% if event %}
                 {{ event.event_name }} - Your Images are ready
+              {% elif error %}
+                <span class="text-red-500">{{ error }}</span>
               {% else %}
                 Your Images are ready
               {% endif %}
             </h1>
             <div class="w-full flex-1 mt-8">
 
+                {% if not error %}
                 <!-- Selfie Capture Section -->
                 <div class="mt-8 pt-6 border-t border-gray-200">
                   <h2 class="text-center text-xl font-bold mb-4">Take a Selfie</h2>
@@ -125,6 +128,7 @@
                     </button>
                   </div>
                 </div>
+                {% endif %}
                 
                 {% if event %}
                 <div class="mt-6 text-center text-sm text-gray-600">

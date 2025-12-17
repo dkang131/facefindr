@@ -90,8 +90,12 @@ async def dashboard_page(
     
     logger.info(f"User email from token: {user_email}")
     
-    # Build query for events
-    query = db.query(EventName)
+    # Build query for events - only show events created by this admin
+    admin = db.query(Admin).filter(Admin.email == user_email).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    
+    query = db.query(EventName).filter(EventName.admin_id == admin.id)
     
     # Apply search filter if provided
     if search:
@@ -140,9 +144,15 @@ async def upload_event(
     
     logger.info(f"User {user_email} uploading event: {event_name} with {len(event_images)} images")
     
-    # Save the event to the database
+    # Get the admin user
+    admin = db.query(Admin).filter(Admin.email == user_email).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    
+    # Save the event to the database, associating it with the admin
     new_event = EventName(
-        event_name=event_name
+        event_name=event_name,
+        admin_id=admin.id
     )
     
     try:
@@ -214,10 +224,15 @@ async def edit_event(
     
     logger.info(f"User {user_email} editing event ID: {event_id}")
     
-    # Get the event from the database
-    event = db.query(EventName).filter(EventName.id == event_id).first()
+    # Get the admin user
+    admin = db.query(Admin).filter(Admin.email == user_email).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    
+    # Get the event from the database, ensuring it belongs to this admin
+    event = db.query(EventName).filter(EventName.id == event_id, EventName.admin_id == admin.id).first()
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail="Event not found or not authorized")
     
     # Update event name if provided
     if event_name is not None and event_name.strip() != "":
@@ -285,10 +300,15 @@ async def delete_event(
     
     logger.info(f"User {user_email} deleting event ID: {event_id}")
     
-    # Get the event from the database
-    event = db.query(EventName).filter(EventName.id == event_id).first()
+    # Get the admin user
+    admin = db.query(Admin).filter(Admin.email == user_email).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    
+    # Get the event from the database, ensuring it belongs to this admin
+    event = db.query(EventName).filter(EventName.id == event_id, EventName.admin_id == admin.id).first()
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail="Event not found or not authorized")
     
     try:
         # Delete all associated photos/videos
@@ -311,12 +331,31 @@ async def delete_event(
     return RedirectResponse(url="/cms/dashboard", status_code=303)
 
 @router.get("/qr/{event_id}")
-async def generate_qr_code(event_id: int, db: Session = Depends(get_db)):
+async def generate_qr_code(event_id: int, request: Request, db: Session = Depends(get_db)):
     """Generate a QR code for an event that links to the download page."""
-    # Get the event from the database
-    event = db.query(EventName).filter(EventName.id == event_id).first()
+    # Check if user is authenticated by validating JWT token
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Validate JWT token
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_email = payload.get("sub")
+        if user_email is None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Get the admin user
+    admin = db.query(Admin).filter(Admin.email == user_email).first()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+    
+    # Get the event from the database, ensuring it belongs to this admin
+    event = db.query(EventName).filter(EventName.id == event_id, EventName.admin_id == admin.id).first()
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail="Event not found or not authorized")
     
     # Generate QR code linking to the download page for this event
     download_url = f"{settings.FRONTEND_URL}/download?event_id={event_id}"
