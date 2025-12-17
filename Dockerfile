@@ -33,6 +33,7 @@ WORKDIR /app
 # Copy venv form builder stage 
 COPY --from=builder /app/.venv /app/.venv
 
+COPY ./alembic ./alembic
 COPY ./auth ./auth
 COPY ./cms ./cms
 COPY ./download ./download
